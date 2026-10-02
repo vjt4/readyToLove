@@ -1,0 +1,572 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Ready To Love - Premiere Bingo</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Canvas Confetti -->
+    <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
+    
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@600;700;800;900&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap');
+
+        :root {
+            --primary-bg: #1a0307;
+            --gold-light: #fbe3ad;
+            --gold-mid: #d4af37;
+            --rose-accent: #e63946;
+        }
+
+        body {
+            font-family: 'Plus Jakarta Sans', sans-serif;
+            background-color: var(--primary-bg);
+            background-image: 
+                radial-gradient(circle at 50% 0%, #520b18 0%, #1a0307 70%),
+                radial-gradient(circle at 100% 100%, #36020c 0%, transparent 50%);
+            background-attachment: fixed;
+            color: #fff;
+            min-height: 100vh;
+            touch-action: manipulation;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        .font-serif-title {
+            font-family: 'Cinzel', serif;
+        }
+
+        .gold-gradient-text {
+            background: linear-gradient(135deg, #fff2d1 0%, #e5c158 50%, #9e7311 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        /* Floating background elements */
+        .heart-particle {
+            position: fixed;
+            pointer-events: none;
+            color: rgba(230, 57, 70, 0.25);
+            animation: floatUp 12s infinite linear;
+            z-index: 0;
+        }
+
+        @keyframes floatUp {
+            0% { transform: translateY(105vh) scale(0.5) rotate(0deg); opacity: 0; }
+            20% { opacity: 0.6; }
+            80% { opacity: 0.6; }
+            100% { transform: translateY(-10vh) scale(1.2) rotate(360deg); opacity: 0; }
+        }
+
+        /* 5x5 Tile Layout */
+        .bingo-tile {
+            transition: all 0.22s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            aspect-ratio: 1 / 1;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+            hyphens: auto;
+            word-wrap: break-word;
+            user-select: none;
+        }
+
+        .bingo-tile:active {
+            transform: scale(0.93);
+        }
+
+        .bingo-tile.marked {
+            background: linear-gradient(135deg, rgba(186, 24, 27, 0.95), rgba(102, 7, 12, 0.95)) !important;
+            border-color: #ffd700 !important;
+            box-shadow: 0 0 14px rgba(255, 215, 0, 0.5), inset 0 0 10px rgba(255, 215, 0, 0.3);
+            animation: popMark 0.3s ease-out;
+        }
+
+        .bingo-tile.winning-tile {
+            animation: pulseGold 1.5s infinite alternate;
+        }
+
+        @keyframes popMark {
+            0% { transform: scale(0.85); }
+            50% { transform: scale(1.05); }
+            100% { transform: scale(1); }
+        }
+
+        @keyframes pulseGold {
+            0% { box-shadow: 0 0 8px #ffd700; border-color: #ffe875; }
+            100% { box-shadow: 0 0 22px #ffd700, 0 0 32px #e63946; border-color: #ffffff; }
+        }
+
+        .glass-panel {
+            background: rgba(35, 6, 13, 0.78);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid rgba(212, 175, 55, 0.28);
+        }
+
+        #toast {
+            transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275), opacity 0.3s ease;
+        }
+    </style>
+</head>
+<body class="flex flex-col min-h-screen relative overflow-x-hidden pb-8">
+
+    <div id="heart-container" aria-hidden="true"></div>
+
+    <header class="relative z-10 w-full pt-5 pb-3 px-4 text-center">
+        <div class="max-w-md mx-auto">
+            <div class="inline-flex items-center gap-2 mb-1">
+                <i class="fa-solid fa-heart text-red-500 text-xs animate-pulse"></i>
+                <span class="text-[11px] tracking-[0.2em] text-yellow-200/90 font-bold uppercase">Premiere Watch Party</span>
+                <i class="fa-solid fa-heart text-red-500 text-xs animate-pulse"></i>
+            </div>
+            
+            <h1 class="text-3xl sm:text-4xl font-black font-serif-title gold-gradient-text tracking-wide drop-shadow-md">
+                READY TO LOVE
+            </h1>
+            <p class="text-xs text-rose-200/80 font-medium tracking-widest mt-0.5 uppercase">
+                INTERACTIVE 5x5 BINGO
+            </p>
+        </div>
+    </header>
+
+    <main class="relative z-10 flex-1 max-w-md w-full mx-auto px-3 flex flex-col items-center">
+        
+        <!-- Status Bar -->
+        <div class="w-full glass-panel rounded-xl p-2.5 mb-3 flex items-center justify-between text-xs sm:text-sm font-semibold text-yellow-100">
+            <div class="flex items-center gap-2">
+                <div class="w-2.5 h-2.5 rounded-full bg-red-600 animate-ping"></div>
+                <span>Marked: <span id="progress-count" class="text-yellow-400 font-bold">1</span> / 25</span>
+            </div>
+            <div id="bingo-status-badge" class="px-2.5 py-1 rounded-full bg-red-950/80 border border-red-500/40 text-red-300 text-[11px] font-bold uppercase tracking-wider flex items-center gap-1.5">
+                <i class="fa-solid fa-trophy text-yellow-500"></i>
+                <span id="status-text">Seeking Love...</span>
+            </div>
+        </div>
+
+        <!-- 5x5 Grid Container -->
+        <div class="w-full glass-panel rounded-2xl p-2 sm:p-3 shadow-2xl relative">
+            <div id="bingo-grid" class="grid grid-cols-5 gap-1.5 sm:gap-2 w-full">
+                <!-- 25 Cells dynamically generated -->
+            </div>
+        </div>
+
+        <!-- Action Control Buttons -->
+        <div class="w-full mt-4 grid grid-cols-3 gap-2">
+            <button onclick="shuffleGrid()" class="glass-panel hover:bg-red-900/40 text-yellow-100 font-medium py-2.5 px-2 rounded-xl text-xs flex flex-col sm:flex-row items-center justify-center gap-1.5 transition active:scale-95 border border-yellow-500/20">
+                <i class="fa-solid fa-shuffle text-yellow-400 text-sm"></i>
+                <span>Shuffle</span>
+            </button>
+            
+            <button onclick="resetCurrentGrid()" class="glass-panel hover:bg-red-900/40 text-yellow-100 font-medium py-2.5 px-2 rounded-xl text-xs flex flex-col sm:flex-row items-center justify-center gap-1.5 transition active:scale-95 border border-yellow-500/20">
+                <i class="fa-solid fa-rotate-right text-rose-400 text-sm"></i>
+                <span>Reset</span>
+            </button>
+
+            <button onclick="shareWebApp()" class="bg-gradient-to-r from-amber-600 to-red-600 hover:from-amber-500 hover:to-red-500 text-white font-bold py-2.5 px-2 rounded-xl text-xs flex flex-col sm:flex-row items-center justify-center gap-1.5 shadow-lg shadow-red-950/50 transition active:scale-95">
+                <i class="fa-solid fa-share-nodes text-sm"></i>
+                <span>Share Card</span>
+            </button>
+        </div>
+
+        <!-- Touch Instruction -->
+        <p class="mt-3 text-center text-[11px] text-rose-200/60 max-w-xs">
+            Tap squares as scenes happen live! Connect <span class="text-yellow-300 font-semibold">5 in a row</span> (horizontal, vertical, or diagonal) to win!
+        </p>
+    </main>
+
+    <!-- Toast Notification -->
+    <div id="toast" class="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 transform translate-y-20 opacity-0 pointer-events-none bg-yellow-500 text-gray-950 font-bold px-4 py-2.5 rounded-full shadow-2xl flex items-center gap-2 text-xs border-2 border-yellow-200">
+        <i id="toast-icon" class="fa-solid fa-circle-check text-sm"></i>
+        <span id="toast-message">Game link copied!</span>
+    </div>
+
+    <!-- Victory Modal -->
+    <div id="win-modal" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md opacity-0 pointer-events-none transition-opacity duration-300">
+        <div class="glass-panel max-w-xs w-full p-6 rounded-3xl text-center border-2 border-yellow-400 shadow-2xl transform scale-90 transition-transform duration-300">
+            <div class="w-16 h-16 bg-gradient-to-tr from-yellow-500 to-red-500 rounded-full flex items-center justify-center mx-auto mb-3 shadow-lg animate-bounce">
+                <i class="fa-solid fa-heart text-white text-2xl"></i>
+            </div>
+            
+            <h2 class="text-2xl font-black font-serif-title gold-gradient-text mb-1">BINGO!</h2>
+            <p class="text-[11px] uppercase tracking-widest text-red-300 font-semibold mb-3">Ready To Love Master</p>
+            
+            <p class="text-xs text-yellow-100/90 mb-5 leading-relaxed">
+                You matched 5 in a row! You truly know your reality dating show tropes!
+            </p>
+
+            <div class="flex flex-col gap-2">
+                <button onclick="closeModal()" class="w-full bg-gradient-to-r from-yellow-500 to-amber-600 hover:from-yellow-400 hover:to-amber-500 text-gray-950 font-extrabold py-2.5 rounded-xl text-xs shadow-md transition">
+                    Keep Marking
+                </button>
+                <button onclick="shareWebApp()" class="w-full bg-red-950/80 hover:bg-red-900 border border-yellow-500/40 text-yellow-200 font-semibold py-2 rounded-xl text-xs transition">
+                    Share Card With Friends
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Reality Dating Show Tropes Pool
+        const PROMPTS_POOL = [
+            "\"Here for the right reasons\"",
+            "Host / Tommy drops a bomb",
+            "Unnecessary vocal fry",
+            "Mentioning age gap / maturity",
+            "Talking about kids / family",
+            "Interruption during private chat",
+            "Flirting with bartender",
+            "Red flags called out",
+            "Crying in confessional",
+            "\"I have my guards up\"",
+            "Financial stability mentioned",
+            "Dressed in matching outfits",
+            "Someone avoids a direct question",
+            "Glasses / sunglasses indoors",
+            "Unsolicited advice from contestant",
+            "Double-date tension",
+            "Toast before group session",
+            "Dramatic drink sip",
+            "Awkward silence",
+            "Walk-and-talk poolside",
+            "Claims they are a \"boss\"",
+            "\"Keeping my options open\"",
+            "Whispering in hallway / bathroom",
+            "Bold / outrageous outfit choice",
+            "Someone brought up their ex",
+            "\"I need a real man / woman\"",
+            "Awkward physical touch",
+            "\"I'm non-negotiable on...\"",
+            "\"Not here to make friends\"",
+            "Passionate entrance hug",
+            "Surprise guest or late arrival",
+            "Emotional over elimination",
+            "Personality clash over activity"
+        ];
+
+        // 25-cell grid state (5x5)
+        let gridState = [];
+        let hasWonBingo = false;
+
+        document.addEventListener('DOMContentLoaded', () => {
+            initFloatingHearts();
+            
+            // Read saved card configuration from URL if shared
+            const urlParams = new URLSearchParams(window.location.search);
+            const savedLayout = urlParams.get('card');
+
+            if (savedLayout) {
+                loadCardFromIndices(savedLayout);
+            } else {
+                generateNewCard();
+            }
+            
+            renderGrid();
+            checkBingo(false);
+        });
+
+        function initFloatingHearts() {
+            const container = document.getElementById('heart-container');
+            const heartIcons = ['fa-heart', 'fa-heart-pulse'];
+            
+            for (let i = 0; i < 10; i++) {
+                const heart = document.createElement('i');
+                const randomIcon = heartIcons[Math.floor(Math.random() * heartIcons.length)];
+                heart.className = `fa-solid ${randomIcon} heart-particle`;
+                
+                heart.style.left = `${Math.random() * 100}vw`;
+                heart.style.animationDuration = `${7 + Math.random() * 9}s`;
+                heart.style.animationDelay = `${Math.random() * 4}s`;
+                heart.style.fontSize = `${12 + Math.random() * 16}px`;
+                
+                container.appendChild(heart);
+            }
+        }
+
+        // Generate 5x5 card (Index 12 is center FREE SPACE)
+        function generateNewCard() {
+            const shuffled = [...PROMPTS_POOL].sort(() => 0.5 - Math.random());
+            const selectedPrompts = shuffled.slice(0, 24);
+            
+            gridState = [];
+            let promptIdx = 0;
+
+            for (let i = 0; i < 25; i++) {
+                // Index 12 is Row 3, Column 3 (Center of 5x5)
+                if (i === 12) {
+                    gridState.push({
+                        id: i,
+                        text: "FREE SPACE",
+                        isFreeSpace: true,
+                        isMarked: true
+                    });
+                } else {
+                    gridState.push({
+                        id: i,
+                        promptIndex: PROMPTS_POOL.indexOf(selectedPrompts[promptIdx]),
+                        text: selectedPrompts[promptIdx],
+                        isFreeSpace: false,
+                        isMarked: false
+                    });
+                    promptIdx++;
+                }
+            }
+            hasWonBingo = false;
+        }
+
+        function getCardIndicesString() {
+            return gridState.map(tile => tile.isFreeSpace ? 'FS' : tile.promptIndex).join(',');
+        }
+
+        function loadCardFromIndices(indicesStr) {
+            try {
+                const indices = indicesStr.split(',');
+                if (indices.length !== 25) throw new Error('Invalid grid size');
+
+                gridState = indices.map((idxVal, i) => {
+                    if (idxVal === 'FS' || i === 12) {
+                        return { id: i, text: "FREE SPACE", isFreeSpace: true, isMarked: true };
+                    }
+                    const pIdx = parseInt(idxVal, 10);
+                    const promptText = PROMPTS_POOL[pIdx] || "Ready To Love";
+                    return { id: i, promptIndex: pIdx, text: promptText, isFreeSpace: false, isMarked: false };
+                });
+                hasWonBingo = false;
+            } catch (e) {
+                generateNewCard();
+            }
+        }
+
+        function renderGrid() {
+            const gridEl = document.getElementById('bingo-grid');
+            gridEl.innerHTML = '';
+
+            gridState.forEach((tile) => {
+                const button = document.createElement('button');
+                button.setAttribute('type', 'button');
+                button.className = `bingo-tile p-1 sm:p-1.5 rounded-xl text-[10px] sm:text-[11px] leading-tight font-semibold border transition-all duration-200 relative overflow-hidden ${
+                    tile.isMarked 
+                        ? 'marked text-white border-yellow-400' 
+                        : 'bg-red-950/40 hover:bg-red-900/40 text-rose-100 border-red-900/60 hover:border-yellow-500/40'
+                }`;
+
+                if (tile.isFreeSpace) {
+                    button.classList.add('bg-gradient-to-br', 'from-amber-700/80', 'to-red-800/80', 'border-yellow-400', 'text-yellow-200');
+                    button.innerHTML = `
+                        <i class="fa-solid fa-heart text-yellow-300 text-sm mb-0.5 animate-pulse"></i>
+                        <span class="font-bold text-[9px] tracking-wider uppercase">FREE SPACE</span>
+                    `;
+                } else {
+                    button.innerHTML = `
+                        ${tile.isMarked ? '<i class="fa-solid fa-heart text-yellow-300 text-[10px] mb-0.5"></i>' : ''}
+                        <span>${escapeHtml(tile.text)}</span>
+                    `;
+                }
+
+                button.onclick = () => toggleTileMark(tile.id);
+                gridEl.appendChild(button);
+            });
+
+            updateProgressCount();
+        }
+
+        function toggleTileMark(id) {
+            const tile = gridState.find(t => t.id === id);
+            if (!tile) return;
+
+            if (tile.isFreeSpace) {
+                showToast("Free Space is always marked! ❤️");
+                return;
+            }
+
+            tile.isMarked = !tile.isMarked;
+            renderGrid();
+            checkBingo(true);
+        }
+
+        function updateProgressCount() {
+            const markedCount = gridState.filter(t => t.isMarked).length;
+            document.getElementById('progress-count').innerText = markedCount;
+        }
+
+        function checkBingo(triggerCelebration = true) {
+            const size = 5;
+            const winningIndices = new Set();
+            let isBingo = false;
+
+            // 1. Check Rows
+            for (let r = 0; r < size; r++) {
+                let rowMarked = true;
+                const rowIndices = [];
+                for (let c = 0; c < size; c++) {
+                    const idx = r * size + c;
+                    rowIndices.push(idx);
+                    if (!gridState[idx].isMarked) rowMarked = false;
+                }
+                if (rowMarked) {
+                    isBingo = true;
+                    rowIndices.forEach(i => winningIndices.add(i));
+                }
+            }
+
+            // 2. Check Columns
+            for (let c = 0; c < size; c++) {
+                let colMarked = true;
+                const colIndices = [];
+                for (let r = 0; r < size; r++) {
+                    const idx = r * size + c;
+                    colIndices.push(idx);
+                    if (!gridState[idx].isMarked) colMarked = false;
+                }
+                if (colMarked) {
+                    isBingo = true;
+                    colIndices.forEach(i => winningIndices.add(i));
+                }
+            }
+
+            // 3. Check Diagonal (Top-Left to Bottom-Right)
+            let diag1Marked = true;
+            const diag1Indices = [];
+            for (let i = 0; i < size; i++) {
+                const idx = i * size + i;
+                diag1Indices.push(idx);
+                if (!gridState[idx].isMarked) diag1Marked = false;
+            }
+            if (diag1Marked) {
+                isBingo = true;
+                diag1Indices.forEach(i => winningIndices.add(i));
+            }
+
+            // 4. Check Anti-Diagonal (Top-Right to Bottom-Left)
+            let diag2Marked = true;
+            const diag2Indices = [];
+            for (let i = 0; i < size; i++) {
+                const idx = i * size + (size - 1 - i);
+                diag2Indices.push(idx);
+                if (!gridState[idx].isMarked) diag2Marked = false;
+            }
+            if (diag2Marked) {
+                isBingo = true;
+                diag2Indices.forEach(i => winningIndices.add(i));
+            }
+
+            // Highlight winning tiles
+            const gridButtons = document.querySelectorAll('#bingo-grid button');
+            gridButtons.forEach((btn, idx) => {
+                if (winningIndices.has(idx)) {
+                    btn.classList.add('winning-tile');
+                } else {
+                    btn.classList.remove('winning-tile');
+                }
+            });
+
+            // Update Badge State
+            const statusBadge = document.getElementById('status-text');
+            if (isBingo) {
+                statusBadge.innerText = "BINGO ACHIEVED!";
+                statusBadge.parentElement.className = "px-2.5 py-1 rounded-full bg-yellow-500/20 border border-yellow-400 text-yellow-300 text-[11px] font-bold uppercase tracking-wider flex items-center gap-1.5 animate-bounce";
+
+                if (!hasWonBingo && triggerCelebration) {
+                    hasWonBingo = true;
+                    triggerHeartConfetti();
+                    openModal();
+                }
+            } else {
+                statusBadge.innerText = "Seeking Love...";
+                statusBadge.parentElement.className = "px-2.5 py-1 rounded-full bg-red-950/80 border border-red-500/40 text-red-300 text-[11px] font-bold uppercase tracking-wider flex items-center gap-1.5";
+            }
+        }
+
+        function triggerHeartConfetti() {
+            if (typeof confetti === 'function') {
+                confetti({
+                    particleCount: 70,
+                    spread: 60,
+                    origin: { y: 0.6 },
+                    colors: ['#e63946', '#ffd700', '#ffb703', '#ffffff']
+                });
+            }
+        }
+
+        function shuffleGrid() {
+            generateNewCard();
+            renderGrid();
+            checkBingo(false);
+            showToast("New 5x5 card shuffled!");
+        }
+
+        function resetCurrentGrid() {
+            gridState.forEach(tile => {
+                if (!tile.isFreeSpace) tile.isMarked = false;
+            });
+            hasWonBingo = false;
+            renderGrid();
+            checkBingo(false);
+            showToast("Card marks reset!");
+        }
+
+        function shareWebApp() {
+            const cardData = getCardIndicesString();
+            const shareUrl = `${window.location.origin}${window.location.pathname}?card=${cardData}`;
+
+            if (navigator.share) {
+                navigator.share({
+                    title: 'Ready To Love - Premiere Bingo',
+                    text: 'Play interactive 5x5 Ready To Love Premiere Bingo live with me!',
+                    url: shareUrl
+                }).catch(() => {
+                    copyToClipboard(shareUrl);
+                });
+            } else {
+                copyToClipboard(shareUrl);
+            }
+        }
+
+        function copyToClipboard(text) {
+            const tempInput = document.createElement('input');
+            tempInput.value = text;
+            document.body.appendChild(tempInput);
+            tempInput.select();
+            
+            try {
+                document.execCommand('copy');
+                showToast("Card link copied to clipboard!");
+            } catch (err) {
+                showToast("Failed to copy link.");
+            }
+            document.body.removeChild(tempInput);
+        }
+
+        function showToast(msg) {
+            const toast = document.getElementById('toast');
+            const toastMsg = document.getElementById('toast-message');
+            toastMsg.innerText = msg;
+
+            toast.classList.remove('translate-y-20', 'opacity-0');
+            toast.classList.add('translate-y-0', 'opacity-100');
+
+            setTimeout(() => {
+                toast.classList.remove('translate-y-0', 'opacity-100');
+                toast.classList.add('translate-y-20', 'opacity-0');
+            }, 2500);
+        }
+
+        function openModal() {
+            const modal = document.getElementById('win-modal');
+            modal.classList.remove('opacity-0', 'pointer-events-none');
+        }
+
+        function closeModal() {
+            const modal = document.getElementById('win-modal');
+            modal.classList.add('opacity-0', 'pointer-events-none');
+        }
+
+        function escapeHtml(str) {
+            return str.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+        }
+    </script>
+</body>
+</html>
