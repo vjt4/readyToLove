@@ -568,5 +568,44 @@
             return str.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
         }
     </script>
+  <aside class="github-qr" aria-label="Open Ready to Love on GitHub Pages">
+    <a href="https://vjt4.github.io/readyToLove/">
+      <img
+        src="https://api.qrserver.com/v1/create-qr-code/?size=180x180&amp;data=https%3A%2F%2Fvjt4.github.io%2FreadyToLove%2F"
+        alt="QR code for the Ready to Love website"
+        width="180"
+        height="180"
+      >
+      <span>Scan to open Ready to Love</span>
+    </a>
+  </aside>
+
+  <style>
+    .github-qr {
+      margin: 2rem auto;
+      padding: 1rem;
+      width: fit-content;
+      text-align: center;
+    }
+
+    .github-qr a {
+      display: grid;
+      gap: 0.75rem;
+      color: inherit;
+      text-decoration: none;
+    }
+
+    .github-qr img {
+      display: block;
+      padding: 0.5rem;
+      border-radius: 0.75rem;
+      background: #fff;
+      box-shadow: 0 0.5rem 1.5rem rgb(0 0 0 / 15%);
+    }
+
+    .github-qr span {
+      font-weight: 600;
+    }
+  </style>
 </body>
 </html>
